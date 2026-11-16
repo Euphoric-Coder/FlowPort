@@ -1,51 +1,111 @@
-# FlowPort — Version 0.1
+# FlowPort — Version 1.0
 
 **Intelligent Logistics & Supply Chain Management**
 *Move Smarter. Deliver Better.*
 
-FlowPort is a premium, AI-native logistics platform interface. This repository contains **Version 0.1** — a fully interactive frontend foundation with realistic, interconnected mock data and a mock service layer designed so real backends, AI services, and mapping providers can replace it in later versions.
+FlowPort is a large-scale, AI-powered logistics and supply chain management platform.
 
-> **Demo notice:** Everything in this version runs on deterministic sample data. No real authentication, databases, payments, AI inference, routing engines, or external APIs are connected.
+This repository contains **Version 1.0 — Backend & Database Foundation** along with the interactive Next.js frontend application.
 
 ---
 
-## Tech Stack
+## Technical Architecture
 
-- **Next.js 13 (App Router)** + React 18 + TypeScript (strict)
-- **Tailwind CSS** with a custom design system (dark + light themes)
-- **shadcn/ui** (Radix primitives) for the component library
-- **Recharts** for analytics visualizations
-- **Framer Motion** for micro-interactions
-- **React Hook Form + Zod** for form validation
-- **next-themes** for theme switching, **Sonner** for toasts, **Lucide** for icons
+FlowPort uses a decoupled fullstack architecture:
 
-## Getting Started
+- **Frontend**: Next.js 13.5 (App Router) + React 18 + Tailwind CSS + Radix UI + Framer Motion
+- **Backend API**: Node.js + Express + TypeScript (located in `backend/`)
+- **Database**: NeonDB (Serverless Managed PostgreSQL)
+- **ORM & Migrations**: Drizzle ORM + Drizzle Kit
+- **Validation & Logging**: Zod + Pino (with sensitive data redaction)
+- **Documentation**: Swagger UI / OpenAPI 3.0 at `/api/docs`
+- **Testing**: Vitest + Supertest
+
+---
+
+## Quick Start Commands
+
+### 1. Frontend
 
 ```bash
 npm install
-npm run dev        # start dev server
-npm run build      # production build
-npm run typecheck  # strict TypeScript check
+npm run dev        # Starts frontend at http://localhost:3000
+npm run typecheck  # Strict TypeScript verification
+npm run build      # Next.js production build
 ```
 
-Open the marketing site at `/` and the platform at `/dashboard`. No login is required — sign-in and registration are simulated.
+### 2. Backend (Version 1.0)
+
+```bash
+# Start backend in development mode (from root or backend/)
+npm run backend:dev
+
+# Run automated tests (Vitest + Supertest)
+npm run backend:test
+
+# Compile backend TypeScript
+npm run backend:typecheck
+npm run backend:build
+
+# Database migrations & tools
+npm run db:generate  # Generate SQL migration
+npm run db:migrate   # Apply migrations to Neon
+npm run db:seed      # Seed deterministic demo data
+npm run db:studio    # Open Drizzle Studio database browser
+```
+
+The local backend runs at:
+- **API Base URL**: `http://localhost:5000/api/v1`
+- **Liveness Probe**: `http://localhost:5000/api/v1/health`
+- **Readiness Probe**: `http://localhost:5000/api/v1/health/ready`
+- **Swagger Documentation**: `http://localhost:5000/api/docs`
+
+---
+
+## Environment Variables
+
+### Backend (`backend/.env`)
+See `backend/.env.example`:
+```ini
+NODE_ENV=development
+PORT=5000
+LOG_LEVEL=info
+CORS_ORIGIN=http://localhost:3000,http://localhost:5173
+DATABASE_URL=postgresql://USER:PASSWORD@ep-sample-pooler.region.neon.tech/flowport?sslmode=require
+DIRECT_DATABASE_URL=postgresql://USER:PASSWORD@ep-sample.region.neon.tech/flowport?sslmode=require
+```
+
+### Frontend (`.env.local`)
+```ini
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+---
 
 ## Project Structure
 
 ```
-app/
-  (marketing)/            # public site: /, /features, /solutions, /pricing
-  (auth)/                 # /login, /register (simulated)
-  dashboard/              # platform shell + all module pages
-components/
-  layout/                 # sidebar, header, page header
-  dashboard/              # dashboard-level feature components (+ ai/)
-  marketing/              # marketing nav, footer, hero visual
-  shared/                 # logo, theme toggle, KPI cards, charts, badges, providers
-  ui/                     # shadcn/ui primitives
-data/mock/                # centralized, interconnected mock dataset
-types/                    # shared TypeScript domain models
-hooks/  lib/              # hooks (toast) and utilities
+FlowPort/
+├── app/                  # Next.js App Router (marketing, auth, dashboard)
+├── components/           # UI components (Radix, layout, dashboard, shared)
+├── data/mock/            # Realistic mock data layer
+├── lib/
+│   ├── api-client.ts     # Typed backend API client (Version 1.0 integration)
+│   └── utils.ts          # Shared UI utilities
+├── public/               # Static assets & icons
+├── types/                # Frontend TypeScript domain types
+└── backend/              # FlowPort Version 1.0 Backend
+    ├── src/
+    │   ├── app.ts        # Express setup, security, logging & middleware
+    │   ├── server.ts     # HTTP server bootstrap & graceful shutdown
+    │   ├── config/       # Environment, CORS & Pino logger
+    │   ├── db/           # Drizzle client, pool, schemas & seed script
+    │   ├── modules/      # Health check module
+    │   ├── middleware/   # Request logger, error handler & 404
+    │   ├── lib/errors/   # Custom AppError hierarchy
+    │   └── docs/         # OpenAPI 3.0 specification
+    ├── drizzle/          # Generated version-controlled SQL migrations
+    └── tests/            # Vitest + Supertest automated test suite
 ```
 
 ## Implemented Features
