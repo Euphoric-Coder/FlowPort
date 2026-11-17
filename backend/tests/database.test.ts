@@ -1,7 +1,6 @@
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
-import { app } from '../src/app';
-import * as dbModule from '../src/db';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { pool } from '../src/db/dbconfig';
 import {
   membershipRoleEnum,
   membershipStatusEnum,
@@ -11,15 +10,19 @@ import {
   users,
   userStatusEnum,
 } from '../src/db/schema';
+import { app } from '../src/server';
 
 describe('Database & Schema Foundation', () => {
+  const originalDbUrl = process.env.DATABASE_URL;
+
+  afterEach(() => {
+    process.env.DATABASE_URL = originalDbUrl;
+    vi.restoreAllMocks();
+  });
+
   describe('GET /api/v1/health/ready (Readiness Probe)', () => {
-    it('should return HTTP 503 when database is disconnected or unconfigured', async () => {
-      // Mock database check returning disconnected
-      vi.spyOn(dbModule, 'checkDatabaseConnection').mockResolvedValueOnce({
-        connected: false,
-        error: 'DATABASE_URL is not configured',
-      });
+    it('should return HTTP 503 when DATABASE_URL is not configured', async () => {
+      delete process.env.DATABASE_URL;
 
       const res = await request(app).get('/api/v1/health/ready');
 
@@ -27,7 +30,29 @@ describe('Database & Schema Foundation', () => {
       expect(res.body).toMatchObject({
         success: false,
         error: {
-          code: 'DATABASE_UNAVAILABLE',
+          message: 'Database connection unavailable',
+        },
+        data: {
+          service: 'flowport-api',
+          status: 'unready',
+          database: {
+            status: 'unavailable',
+          },
+        },
+      });
+    });
+
+    it('should return HTTP 503 when database query fails or is disconnected', async () => {
+      process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+      vi.spyOn(pool, 'query').mockRejectedValueOnce(new Error('Connection timeout') as never);
+
+      const res = await request(app).get('/api/v1/health/ready');
+
+      expect(res.status).toBe(503);
+      expect(res.body).toMatchObject({
+        success: false,
+        error: {
+          message: 'Database connection failed',
         },
         data: {
           service: 'flowport-api',
@@ -40,10 +65,8 @@ describe('Database & Schema Foundation', () => {
     });
 
     it('should return HTTP 200 when database connectivity succeeds', async () => {
-      vi.spyOn(dbModule, 'checkDatabaseConnection').mockResolvedValueOnce({
-        connected: true,
-        latencyMs: 12.4,
-      });
+      process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+      vi.spyOn(pool, 'query').mockResolvedValueOnce({ rows: [{ '?column?': 1 }] } as never);
 
       const res = await request(app).get('/api/v1/health/ready');
 
@@ -55,10 +78,10 @@ describe('Database & Schema Foundation', () => {
           status: 'ready',
           database: {
             status: 'connected',
-            latencyMs: 12.4,
           },
         },
       });
+      expect(typeof res.body.data.database.latencyMs).toBe('number');
     });
   });
 

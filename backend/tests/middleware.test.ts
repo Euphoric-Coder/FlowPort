@@ -1,21 +1,19 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { app } from '../src/app';
+import { app } from '../src/server';
 
 describe('Middleware & Error Handling', () => {
   describe('Not Found Handler', () => {
-    it('should return HTTP 404 with standardized error response for unknown route', async () => {
+    it('should return HTTP 404 for unknown route', async () => {
       const res = await request(app).get('/api/v1/unknown-endpoint-404');
 
       expect(res.status).toBe(404);
-      expect(res.body).toMatchObject({
+      expect(res.body).toEqual({
         success: false,
         error: {
-          code: 'NOT_FOUND',
+          message: 'Route not found',
         },
       });
-      expect(res.body.error.message).toContain('Cannot GET /api/v1/unknown-endpoint-404');
-      expect(res.headers).toHaveProperty('x-request-id');
     });
 
     it('should return 404 for unknown POST route', async () => {
@@ -24,27 +22,12 @@ describe('Middleware & Error Handling', () => {
         .send({ test: 'data' });
 
       expect(res.status).toBe(404);
-      expect(res.body.success).toBe(false);
-      expect(res.body.error.code).toBe('NOT_FOUND');
-    });
-  });
-
-  describe('Request ID Middleware', () => {
-    it('should preserve and reflect client-provided x-request-id', async () => {
-      const clientReqId = 'custom-trace-id-12345';
-      const res = await request(app)
-        .get('/api/v1/health')
-        .set('x-request-id', clientReqId);
-
-      expect(res.headers['x-request-id']).toBe(clientReqId);
-    });
-
-    it('should generate a valid request ID when none is provided', async () => {
-      const res = await request(app).get('/api/v1/health');
-
-      const reqId = res.headers['x-request-id'];
-      expect(typeof reqId).toBe('string');
-      expect(reqId.length).toBeGreaterThan(0);
+      expect(res.body).toEqual({
+        success: false,
+        error: {
+          message: 'Route not found',
+        },
+      });
     });
   });
 
@@ -66,14 +49,6 @@ describe('Middleware & Error Handling', () => {
       expect(res.headers['access-control-allow-origin']).toBe('http://localhost:3000');
       expect(res.headers['access-control-allow-credentials']).toBe('true');
     });
-
-    it('should expose x-request-id in CORS headers', async () => {
-      const res = await request(app)
-        .get('/api/v1/health')
-        .set('Origin', 'http://localhost:3000');
-
-      expect(res.headers['access-control-expose-headers']).toContain('x-request-id');
-    });
   });
 
   describe('Request Body & JSON Parsing', () => {
@@ -84,12 +59,8 @@ describe('Middleware & Error Handling', () => {
         .send('{ "broken": json-invalid }');
 
       expect(res.status).toBe(400);
-      expect(res.body).toMatchObject({
-        success: false,
-        error: {
-          code: 'INVALID_JSON',
-        },
-      });
+      expect(res.body).toHaveProperty('success', false);
+      expect(res.body.error).toHaveProperty('message');
     });
   });
 });

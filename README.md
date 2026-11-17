@@ -1,11 +1,11 @@
-# FlowPort — Version 1.0
+# FlowPort — Version 1.1
 
 **Intelligent Logistics & Supply Chain Management**
 *Move Smarter. Deliver Better.*
 
 FlowPort is a large-scale, AI-powered logistics and supply chain management platform.
 
-This repository contains **Version 1.0 — Backend & Database Foundation** along with the interactive Next.js frontend application.
+This repository contains **Version 1.1 — Simplified Backend & Database Foundation** along with the interactive Next.js frontend application.
 
 ---
 
@@ -17,8 +17,6 @@ FlowPort uses a decoupled fullstack architecture:
 - **Backend API**: Node.js + Express + TypeScript (located in `backend/`)
 - **Database**: NeonDB (Serverless Managed PostgreSQL)
 - **ORM & Migrations**: Drizzle ORM + Drizzle Kit
-- **Validation & Logging**: Zod + Pino (with sensitive data redaction)
-- **Documentation**: Swagger UI / OpenAPI 3.0 at `/api/docs`
 - **Testing**: Vitest + Supertest
 
 ---

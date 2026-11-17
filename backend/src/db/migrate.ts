@@ -1,46 +1,24 @@
-import dotenv from 'dotenv';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import 'dotenv/config';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import path from 'path';
-import { Pool } from 'pg';
+import { db, pool } from './dbconfig';
 
-dotenv.config();
-
-async function runMigrations(): Promise<void> {
-  const connectionString =
-    process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    // eslint-disable-next-line no-console
-    console.error(
-      'CRITICAL: DIRECT_DATABASE_URL or DATABASE_URL must be configured to run migrations.'
-    );
+async function runMigrate(): Promise<void> {
+  const conn = process.env.DIRECT_DATABASE_URL || process.env.DATABASE_URL;
+  if (!conn) {
+    console.error('DIRECT_DATABASE_URL or DATABASE_URL is required for migrations');
     process.exit(1);
   }
 
-  // eslint-disable-next-line no-console
-  console.log('Executing Drizzle migrations against Neon PostgreSQL...');
-
-  const pool = new Pool({
-    connectionString,
-    max: 1,
-    ssl: { rejectUnauthorized: true },
-  });
-
-  const db = drizzle(pool);
-
+  console.log('Applying migrations to Neon PostgreSQL...');
   try {
-    const migrationsFolder = path.resolve(process.cwd(), 'drizzle');
-    await migrate(db, { migrationsFolder });
-    // eslint-disable-next-line no-console
-    console.log('Drizzle migrations applied successfully.');
+    await migrate(db, { migrationsFolder: './drizzle' });
+    console.log('Migrations applied successfully.');
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('Migration execution failed:', err);
+    console.error('Migration failed:', err);
     process.exit(1);
   } finally {
     await pool.end();
   }
 }
 
-runMigrations();
+runMigrate();

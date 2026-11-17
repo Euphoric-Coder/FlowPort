@@ -1,76 +1,67 @@
-import http from 'http';
-import { app } from './app';
-import { env } from './config/env';
-import { logger } from './config/logger';
-import { closeDatabase, getDatabasePool } from './db';
+import 'dotenv/config';
+import cors from 'cors';
+import express, { Request, Response } from 'express';
+import helmet from 'helmet';
+import { pool } from './db/dbconfig';
+import { errorHandler } from './middleware/errorHandler';
+import { healthRouter } from './routes/health';
 
-const server = http.createServer(app);
+export const app = express();
+const PORT = process.env.PORT || 5000;
 
-function startServer(): void {
-  // Pre-initialize pool connection if DATABASE_URL is configured
-  getDatabasePool();
+// Security & Parsing Middleware
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
+      : ['http://localhost:3000', 'http://localhost:5173'],
+    credentials: true,
+  })
+);
+app.use(express.json());
 
-  server.listen(env.PORT, () => {
-    logger.info(
-      {
-        port: env.PORT,
-        env: env.NODE_ENV,
-        health: `http://localhost:${env.PORT}/api/v1/health`,
-        ready: `http://localhost:${env.PORT}/api/v1/health/ready`,
-        docs: `http://localhost:${env.PORT}/api/docs`,
-      },
-      'FlowPort Backend Server initialized and listening'
-    );
+// Routes
+app.use('/api/v1/health', healthRouter);
+
+app.get('/', (_req: Request, res: Response) => {
+  res.json({
+    service: 'flowport-api',
+    version: '1.1.0',
+    health: '/api/v1/health',
   });
-}
-
-// Graceful Shutdown
-let isShuttingDown = false;
-
-async function handleShutdown(signal: string): Promise<void> {
-  if (isShuttingDown) {
-    return;
-  }
-  isShuttingDown = true;
-  logger.info({ signal }, 'Termination signal received. Initiating graceful shutdown...');
-
-  // Force exit timeout after 10s if graceful shutdown hangs
-  const forceExitTimeout = setTimeout(() => {
-    logger.error('Graceful shutdown timed out. Forcing process exit.');
-    process.exit(1);
-  }, 10000);
-  forceExitTimeout.unref();
-
-  server.close(async (err) => {
-    if (err) {
-      logger.error({ err }, 'Error during HTTP server close');
-    } else {
-      logger.info('HTTP server closed cleanly.');
-    }
-
-    try {
-      await closeDatabase();
-    } catch (dbErr) {
-      logger.error({ dbErr }, 'Error closing database pool during shutdown');
-    }
-
-    clearTimeout(forceExitTimeout);
-    logger.info('FlowPort backend shutdown complete.');
-    process.exit(0);
-  });
-}
-
-process.on('SIGINT', () => handleShutdown('SIGINT'));
-process.on('SIGTERM', () => handleShutdown('SIGTERM'));
-
-process.on('uncaughtException', (err) => {
-  logger.fatal({ err }, 'Uncaught exception occurred. Shutting down process.');
-  process.exit(1);
 });
 
-process.on('unhandledRejection', (reason) => {
-  logger.fatal({ reason }, 'Unhandled promise rejection occurred. Shutting down process.');
-  process.exit(1);
+// 404 Catch-All
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    error: { message: 'Route not found' },
+  });
 });
 
-startServer();
+// Centralized Error Handler
+app.use(errorHandler);
+
+// Server startup (only when not in test mode)
+if (process.env.NODE_ENV !== 'test') {
+  const server = app.listen(PORT, () => {
+    console.log(`FlowPort backend running on port ${PORT}`);
+  });
+
+  const shutdown = async () => {
+    console.log('Shutting down FlowPort backend...');
+    server.close(async () => {
+      try {
+        await pool.end();
+        console.log('Database pool closed cleanly.');
+      } catch (err) {
+        console.error('Error closing database pool:', err);
+      }
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+}

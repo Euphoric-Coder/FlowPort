@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
-import { app } from '../src/app';
+import { app } from '../src/server';
 
-describe('Health & Documentation Endpoints', () => {
+describe('Health & Liveness Endpoints', () => {
   describe('GET /api/v1/health (Liveness)', () => {
     it('should return HTTP 200 with service status ok', async () => {
       const res = await request(app).get('/api/v1/health');
@@ -12,18 +12,9 @@ describe('Health & Documentation Endpoints', () => {
       expect(res.body.data).toMatchObject({
         service: 'flowport-api',
         status: 'ok',
-        version: '1.0.0',
+        version: '1.1.0',
       });
-      expect(res.body.data).toHaveProperty('timestamp');
-      expect(typeof res.body.data.uptimeSeconds).toBe('number');
-    });
-
-    it('should return x-request-id in response headers', async () => {
-      const res = await request(app).get('/api/v1/health');
-
-      expect(res.headers).toHaveProperty('x-request-id');
-      expect(typeof res.headers['x-request-id']).toBe('string');
-      expect(res.headers['x-request-id'].length).toBeGreaterThan(0);
+      expect(typeof res.body.data.uptime).toBe('number');
     });
   });
 
@@ -34,33 +25,9 @@ describe('Health & Documentation Endpoints', () => {
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({
         service: 'flowport-api',
-        version: '1.0.0',
-        docs: '/api/docs',
+        version: '1.1.0',
         health: '/api/v1/health',
       });
-    });
-  });
-
-  describe('GET /api/docs.json (OpenAPI Specification)', () => {
-    it('should return the OpenAPI 3.0 specification', async () => {
-      const res = await request(app).get('/api/docs.json');
-
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('openapi', '3.0.3');
-      expect(res.body.info).toMatchObject({
-        title: 'FlowPort Logistics API',
-        version: '1.0.0',
-      });
-      expect(res.body.paths).toHaveProperty('/health');
-      expect(res.body.paths).toHaveProperty('/health/ready');
-    });
-  });
-
-  describe('GET /api/docs (Swagger UI)', () => {
-    it('should serve Swagger UI documentation or redirect', async () => {
-      const res = await request(app).get('/api/docs/');
-
-      expect([200, 301, 302]).toContain(res.status);
     });
   });
 });
